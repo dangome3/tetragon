@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	slogmulti "github.com/samber/slog-multi"
 
 	"github.com/cilium/tetragon/pkg/logger/logfields"
 )
@@ -71,18 +72,36 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 		writer = os.Stdout
 	}
 
+	var handler slog.Handler
 	switch logFormat {
 	case logFormatJSON, logFormatJSONTimestamp:
-		DefaultSlogLogger = slog.New(slog.NewJSONHandler(
+		handler = slog.NewJSONHandler(
 			writer,
 			&opts,
-		))
+		)
 	case logFormatText, logFormatTextTimestamp:
-		DefaultSlogLogger = slog.New(slog.NewTextHandler(
+		handler = slog.NewTextHandler(
 			writer,
 			&opts,
-		))
+		)
 	}
+
+	// If a log-file is requested, setup a multi logger
+	logFile := logOpts.GetLogFile()
+	if logFile != "" {
+		logWriter, err := os.Create(logFile)
+		if err == nil {
+			DefaultSlogLogger = slog.New(
+				slogmulti.Fanout(
+					handler,
+					slog.NewTextHandler(logWriter, &opts),
+				),
+			)
+			return
+		}
+		DefaultSlogLogger.Warn("Failed to open log file, skipping", "file", logFile, "err", err)
+	}
+	DefaultSlogLogger = slog.New(handler)
 }
 
 func replaceAttrFn(_ []string, a slog.Attr) slog.Attr {
