@@ -382,6 +382,19 @@ github.com/russross/blackfriday/v2
 # github.com/sagikazarmark/locafero v0.11.0
 ## explicit; go 1.23.0
 github.com/sagikazarmark/locafero
+# github.com/samber/lo v1.52.0
+## explicit; go 1.18
+github.com/samber/lo
+github.com/samber/lo/internal/constraints
+github.com/samber/lo/internal/xrand
+github.com/samber/lo/internal/xtime
+github.com/samber/lo/mutable
+# github.com/samber/slog-common v0.19.0
+## explicit; go 1.21
+github.com/samber/slog-common
+# github.com/samber/slog-multi v1.6.0
+## explicit; go 1.21
+github.com/samber/slog-multi
 # github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
 github.com/sirupsen/logrus
