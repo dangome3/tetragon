@@ -179,6 +179,8 @@ options:
       usage: Do not unload sensors on exit
     - name: kernel
       usage: Kernel version
+    - name: log-file
+      usage: Set log file
     - name: log-format
       default_value: text
       usage: Set log format
