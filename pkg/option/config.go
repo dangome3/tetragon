@@ -133,6 +133,8 @@ type config struct {
 	ExecveMapSize    string
 
 	RetprobesCacheSize int
+
+	SyntheticEventsSource string
 }
 
 var (
