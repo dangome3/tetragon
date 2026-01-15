@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/tetragon/pkg/sensors/program"
 	"github.com/cilium/tetragon/pkg/sensors/tracing"
 	"github.com/cilium/tetragon/pkg/server"
+	"github.com/cilium/tetragon/pkg/syntheticevents"
 	"github.com/cilium/tetragon/pkg/tracingpolicy"
 	"github.com/cilium/tetragon/pkg/unixlisten"
 	"github.com/cilium/tetragon/pkg/version"
@@ -367,6 +368,13 @@ func tetragonExecuteCtx(ctx context.Context, cancel context.CancelFunc, ready fu
 	// Get observer from configFile
 	var obs observer.EventObserver
 	if option.Config.SyntheticEventsSource != "" {
+		log.Info("Synthetic Events: Starting to parse events file")
+		err := syntheticevents.ParseEventsFile(option.Config.SyntheticEventsSource)
+		if err != nil {
+			log.Error("Synthetic Events: Failed to parse events file", logfields.Error, err)
+			return err
+		}
+
 		exec.RegisterSyntheticEvents()
 		tracing.RegisterSyntheticEvents()
 		obs = observer.NewFileObserver()
