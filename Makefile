@@ -128,6 +128,10 @@ tetra: ## Compile the Tetragon gRPC client.
 tetra-nok8s: ## Compile the Tetragon gRPC client.
 	$(GO_BUILD_NOK8S) -o $@ ./cmd/tetra/
 
+.PHONY: tetragon-mcp
+tetragon-mcp: ## Compile the Tetragon MCP server.
+	$(GO_BUILD) ./cmd/tetragon-mcp/
+
 .PHONY: tetragon-bpf
 ifeq (1,$(LOCAL_CLANG))
 tetragon-bpf: tetragon-bpf-local ## Compile bpf programs (use LOCAL_CLANG=0 to compile in a Docker build env).
