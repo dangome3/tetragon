@@ -15,6 +15,8 @@ import (
 // registerTools wires all read-only Tetragon tools onto the server.
 func registerTools(server *mcp.Server, client *Client) {
 	registerStatusTool(server, client)
+	registerInfoTool(server, client)
+	registerPoliciesTool(server, client)
 }
 
 // jsonResult marshals v and returns it as a successful tool result with a
