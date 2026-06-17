@@ -30,7 +30,7 @@ func registerStatusTool(server *mcp.Server, client *Client) {
 
 		resp, err := client.api.GetHealth(rpcCtx, &tetragon.GetHealthStatusRequest{})
 		if err != nil {
-			return errorResult(err), statusOutput{}, nil
+			return client.rpcErrorResult(err), statusOutput{}, nil
 		}
 
 		out := statusOutput{}

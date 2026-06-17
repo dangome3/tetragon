@@ -73,8 +73,8 @@ type eventsInput struct {
 // eventsOutput is the bounded result of a GetEvents stream. Events are raw
 // protojson objects (snake_case, matching `tetra getevents -o json`).
 type eventsOutput struct {
-	Events    []json.RawMessage `json:"events"`
-	Count     int               `json:"count"`
+	Events []json.RawMessage `json:"events"`
+	Count  int               `json:"count"`
 	// StoppedBy is why streaming stopped: "max_events", "duration",
 	// "stream_ended", "canceled", or "error".
 	StoppedBy string `json:"stopped_by"`
@@ -112,11 +112,11 @@ func registerEventsTool(server *mcp.Server, client *Client) {
 		streamCtx, cancel := context.WithTimeout(ctx, dur)
 		defer cancel()
 
-		out := collectEvents(streamCtx, client.api, req, maxEvents)
+		out := collectEvents(streamCtx, client.api, req, maxEvents, client.rpcErrorMessage)
 		if out.Count == 0 && out.StoppedBy == "error" {
 			// Nothing useful to show and the stream failed outright (e.g. the
 			// agent is unreachable): surface it as a tool error.
-			return errorResult(errors.New(out.Error)), nil, nil
+			return textErrorResult(out.Error), nil, nil
 		}
 
 		res, err := jsonResult(out)
@@ -202,21 +202,22 @@ var protojsonMarshal = protojson.MarshalOptions{UseProtoNames: true}
 
 // collectEvents opens the stream and gathers up to maxEvents, stopping when the
 // context (duration) expires or the stream ends. It never returns an error:
-// failures are recorded in the result so partial output survives.
-func collectEvents(ctx context.Context, api tetragon.FineGuidanceSensorsClient, req *tetragon.GetEventsRequest, maxEvents int) eventsOutput {
+// failures are recorded in the result so partial output survives. errFmt
+// renders transport errors for the model (see Client.rpcErrorMessage).
+func collectEvents(ctx context.Context, api tetragon.FineGuidanceSensorsClient, req *tetragon.GetEventsRequest, maxEvents int, errFmt func(error) string) eventsOutput {
 	out := eventsOutput{Events: make([]json.RawMessage, 0, maxEvents)}
 
 	stream, err := api.GetEvents(ctx, req)
 	if err != nil {
 		out.StoppedBy = "error"
-		out.Error = grpcMessage(err)
+		out.Error = errFmt(err)
 		return out
 	}
 
 	for len(out.Events) < maxEvents {
 		res, err := stream.Recv()
 		if err != nil {
-			out.StoppedBy, out.Truncated, out.Error = classifyStreamErr(err)
+			out.StoppedBy, out.Truncated, out.Error = classifyStreamErr(err, errFmt)
 			out.Count = len(out.Events)
 			return out
 		}
@@ -239,7 +240,7 @@ func collectEvents(ctx context.Context, api tetragon.FineGuidanceSensorsClient, 
 
 // classifyStreamErr maps a stream termination error to (stoppedBy, truncated,
 // errMsg). Duration expiry and cancellation are expected, not failures.
-func classifyStreamErr(err error) (string, bool, string) {
+func classifyStreamErr(err error, errFmt func(error) string) (string, bool, string) {
 	switch {
 	case errors.Is(err, io.EOF):
 		return "stream_ended", false, ""
@@ -248,6 +249,6 @@ func classifyStreamErr(err error) (string, bool, string) {
 	case errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled:
 		return "canceled", true, ""
 	default:
-		return "error", true, grpcMessage(err)
+		return "error", true, errFmt(err)
 	}
 }

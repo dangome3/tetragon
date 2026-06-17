@@ -51,7 +51,7 @@ func registerPoliciesTool(server *mcp.Server, client *Client) {
 
 		resp, err := client.api.ListTracingPolicies(rpcCtx, &tetragon.ListTracingPoliciesRequest{Domain: in.Domain})
 		if err != nil {
-			return errorResult(err), policiesOutput{}, nil
+			return client.rpcErrorResult(err), policiesOutput{}, nil
 		}
 
 		out := policiesOutput{Policies: make([]policy, 0, len(resp.GetPolicies()))}

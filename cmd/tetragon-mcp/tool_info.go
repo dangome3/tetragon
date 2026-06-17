@@ -26,7 +26,7 @@ func registerInfoTool(server *mcp.Server, client *Client) {
 
 		resp, err := client.api.GetInfo(rpcCtx, &tetragon.GetInfoRequest{})
 		if err != nil {
-			return errorResult(err), nil, nil
+			return client.rpcErrorResult(err), nil, nil
 		}
 
 		// Decode handles the protobuf Any-typed conf values; see

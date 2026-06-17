@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/cilium/tetragon/api/v1/tetragon"
 	"github.com/cilium/tetragon/cmd/tetra/common"
@@ -29,6 +32,7 @@ const retries = 3
 type Client struct {
 	conn    *grpc.ClientConn
 	api     tetragon.FineGuidanceSensorsClient
+	address string
 	timeout time.Duration
 }
 
@@ -49,6 +53,7 @@ func NewClient(cfg *Config) (*Client, error) {
 	return &Client{
 		conn:    conn,
 		api:     tetragon.NewFineGuidanceSensorsClient(conn),
+		address: cfg.Address,
 		timeout: cfg.Timeout,
 	}, nil
 }
@@ -62,4 +67,36 @@ func (c *Client) Close() error {
 // given parent (typically the tool call's context).
 func (c *Client) unaryContext(parent context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(parent, c.timeout)
+}
+
+// rpcErrorResult turns a gRPC call failure into a tool error result with a
+// message tuned for the model: the common failure modes name the endpoint and
+// suggest the likely cause instead of leaking raw gRPC status text.
+func (c *Client) rpcErrorResult(err error) *mcp.CallToolResult {
+	return textErrorResult(c.rpcErrorMessage(err))
+}
+
+// rpcErrorMessage renders a gRPC error into a human-readable, actionable
+// string. It maps the codes a local/loopback deployment actually hits.
+func (c *Client) rpcErrorMessage(err error) string {
+	st, ok := status.FromError(err)
+	if !ok {
+		return err.Error()
+	}
+	switch st.Code() {
+	case codes.Unavailable:
+		return fmt.Sprintf("Tetragon agent unreachable at %s: is the agent running and the address/port-forward correct? (grpc: %s: %s)",
+			c.address, st.Code(), st.Message())
+	case codes.DeadlineExceeded:
+		return fmt.Sprintf("request to Tetragon agent at %s timed out after %s (raise --timeout if the agent is slow) (grpc: %s)",
+			c.address, c.timeout, st.Code())
+	case codes.Unimplemented:
+		return fmt.Sprintf("the agent at %s does not implement this RPC; check the Tetragon version (grpc: %s: %s)",
+			c.address, st.Code(), st.Message())
+	case codes.PermissionDenied, codes.Unauthenticated:
+		return fmt.Sprintf("access to the agent at %s was denied (grpc: %s: %s)",
+			c.address, st.Code(), st.Message())
+	default:
+		return fmt.Sprintf("%s (grpc: %s)", st.Message(), st.Code())
+	}
 }

@@ -130,7 +130,7 @@ func runEventsTool(t *testing.T, api tetragon.FineGuidanceSensorsClient, in even
 
 	ctx, cancel := context.WithTimeout(context.Background(), dur)
 	defer cancel()
-	return collectEvents(ctx, api, req, maxEvents)
+	return collectEvents(ctx, api, req, maxEvents, func(e error) string { return e.Error() })
 }
 
 func TestEventsStopsAtMaxEvents(t *testing.T) {

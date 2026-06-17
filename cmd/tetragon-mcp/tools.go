@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"google.golang.org/grpc/status"
-
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -32,20 +30,18 @@ func jsonResult(v any) (*mcp.CallToolResult, error) {
 	}, nil
 }
 
-// errorResult returns a tool-level error result (IsError=true). This reports
-// the failure to the model without crashing the server.
+// errorResult returns a tool-level error result (IsError=true) for a
+// non-RPC failure (e.g. bad input, encoding). This reports the failure to the
+// model without crashing the server. For gRPC call failures, prefer
+// Client.rpcErrorResult so the message names the endpoint.
 func errorResult(err error) *mcp.CallToolResult {
-	return &mcp.CallToolResult{
-		IsError: true,
-		Content: []mcp.Content{&mcp.TextContent{Text: grpcMessage(err)}},
-	}
+	return textErrorResult(err.Error())
 }
 
-// grpcMessage renders an error for the model, mapping gRPC status codes to a
-// friendlier "<message> (grpc: <code>)" form.
-func grpcMessage(err error) string {
-	if st, ok := status.FromError(err); ok {
-		return fmt.Sprintf("%s (grpc: %s)", st.Message(), st.Code())
+// textErrorResult wraps a ready-made message as a tool error result.
+func textErrorResult(msg string) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
+		IsError: true,
+		Content: []mcp.Content{&mcp.TextContent{Text: msg}},
 	}
-	return err.Error()
 }
