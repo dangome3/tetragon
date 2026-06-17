@@ -1,0 +1,46 @@
+# Copyright Authors of Tetragon
+# SPDX-License-Identifier: Apache-2.0
+
+ARG BASE_IMAGE=scratch
+ARG GOLANG_IMAGE=docker.io/library/golang:1.26.4@sha256:68cb6d68bed024785b69195b89af7ac7a444f27791435f98647edff595aa0479
+ARG ALPINE_IMAGE=docker.io/library/alpine:3.24.0@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
+
+# BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
+# Represents the platform where the build is happening, do not mix with
+# TARGETARCH.
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS builder
+
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
+ARG NOSTRIP
+ARG TETRAGON_VERSION
+
+WORKDIR /go/src/github.com/cilium/tetragon
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/tetragon --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    make GOARCH=${TARGETARCH} VERSION=${TETRAGON_VERSION} tetragon-mcp \
+    && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv tetragon-mcp /out/${TARGETOS}/${TARGETARCH}/usr/bin
+
+# CA certificates are not needed for the plaintext MVP (loopback / port-forward
+# / unix socket), but are included so a future TLS-to-remote-agent path works
+# without rebuilding the image base.
+FROM --platform=${BUILDPLATFORM} ${ALPINE_IMAGE} AS certs
+RUN apk --update add ca-certificates
+
+FROM ${BASE_IMAGE} AS release
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
+LABEL maintainer="maintainer@cilium.io"
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/tetragon-mcp /usr/bin/tetragon-mcp
+WORKDIR /
+# tetragon-mcp is an MCP stdio server: it speaks newline-delimited JSON-RPC over
+# stdin/stdout, so run the container interactively, e.g.
+#   docker run -i --rm <image> --address <host:port>
+# An MCP client (Claude Code, Claude Desktop) launches it the same way.
+ENTRYPOINT ["/usr/bin/tetragon-mcp"]
+
+FROM release

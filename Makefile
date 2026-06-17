@@ -194,6 +194,12 @@ image-operator: ## Build the Tetragon operator container image.
 	@echo "Push like this when ready:"
 	@echo "${CONTAINER_ENGINE} push cilium/tetragon-operator:$(DOCKER_IMAGE_TAG)"
 
+.PHONY: image-mcp
+image-mcp: ## Build the Tetragon MCP server container image.
+	$(CONTAINER_ENGINE) build -f Dockerfile.mcp -t "cilium/tetragon-mcp:${DOCKER_IMAGE_TAG}" --build-arg TETRAGON_VERSION=$(VERSION) --platform=linux/${TARGET_ARCH} .
+	@echo "Push like this when ready:"
+	@echo "${CONTAINER_ENGINE} push cilium/tetragon-mcp:$(DOCKER_IMAGE_TAG)"
+
 .PHONY: image-rthooks
 image-rthooks:
 	$(CONTAINER_ENGINE) build -f Dockerfile.rthooks -t "cilium/tetragon-rthooks:${DOCKER_IMAGE_TAG}" --platform=linux/${TARGET_ARCH} .
